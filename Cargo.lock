@@ -1830,6 +1830,7 @@ dependencies = [
  "serde_json",
  "time",
  "tokio",
+ "url",
 ]
 
 [[package]]

@@ -20,7 +20,7 @@ pub async fn score(
     ctx.defer().await?;
     if scoreid.is_some() {
         let unwrapped_score_id = scoreid.unwrap();
-        if firebase::scores::score_already_saved(&unwrapped_score_id.to_string()).await {
+        if firebase::score::score_already_saved(&unwrapped_score_id.to_string()).await {
             embeds::single_text_response(&ctx, &format!("Score {} has already been requested", unwrapped_score_id), MessageState::WARN, false).await;
             return Ok(());
         }
@@ -43,7 +43,7 @@ pub async fn score(
             .embed(embed.footer(serenity::CreateEmbedFooter::new(format!("Requested by @{}", ctx.author().name))))
             .components(vec![serenity::CreateActionRow::Buttons(vec![button])]);
 
-        firebase::scores::insert_score(&unwrapped_score_id.to_string()).await;
+        firebase::score::insert_score(&unwrapped_score_id.to_string()).await;
 
     }
     else if scorefile.is_some() {
@@ -57,7 +57,7 @@ pub async fn score(
         };
         let default_checksum = "".to_string();
         let replay_checksum = replay.replay_hash.as_ref().unwrap_or(&default_checksum);
-        if firebase::scores::score_already_saved(replay_checksum).await {
+        if firebase::score::score_already_saved(replay_checksum).await {
             embeds::single_text_response(&ctx, "Score file has already been requested", MessageState::WARN, false).await;
             return Ok(());
         }
@@ -74,7 +74,7 @@ pub async fn score(
             .embed(embed.footer(serenity::CreateEmbedFooter::new(format!("Requested by @{}", ctx.author().name))))
             .add_file(CreateAttachment::bytes(bytes, "replay.osr"));
 
-        firebase::scores::insert_score(replay_checksum).await;
+        firebase::score::insert_score(replay_checksum).await;
     }
     else {
         embeds::single_text_response(&ctx, "Please define scoreid or scorefile", MessageState::WARN, false).await;

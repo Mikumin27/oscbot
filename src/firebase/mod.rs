@@ -4,7 +4,8 @@ use firebase_rs::Firebase;
 
 use crate::{Error};
 
-pub mod scores;
+pub mod score;
+pub mod user;
 
 static FIREBASE: OnceLock<Firebase> = OnceLock::new();
 
