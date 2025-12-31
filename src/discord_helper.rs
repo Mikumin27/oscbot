@@ -14,14 +14,24 @@ pub enum MessageState {
 pub async fn handle_error(error: poise::FrameworkError<'_, Data, Error>) -> () {
     match error {
         poise::FrameworkError::CommandCheckFailed { .. } => return (),
-        _ => ()
-    };
-
-    match error.ctx() {
-        Some(ctx) => {
-            single_text_response(&ctx, "Something went wrong. blame Mikumin.", MessageState::ERROR, false).await;
+        poise::FrameworkError::MissingBotPermissions { .. } => {
+            match error.ctx() {
+                Some(ctx) => {
+                    single_text_response(&ctx, "Bot has missing permissions", MessageState::ERROR, true).await;
+                },
+            None => (),
+            };
+            return ()
+        },
+        poise::FrameworkError::MissingUserPermissions { .. } => return (),
+        _ => {
+            match error.ctx() {
+                Some(ctx) => {
+                    single_text_response(&ctx, "Something went wrong. blame Mikumin.", MessageState::ERROR, false).await;
+                },
+                None => (),
+            };
         }
-        None => return ()
     };
     println!("{:?}", error)
 }
