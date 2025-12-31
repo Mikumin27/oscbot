@@ -14,15 +14,16 @@ pub enum MessageState {
 pub async fn handle_error(error: poise::FrameworkError<'_, Data, Error>) -> () {
     match error {
         poise::FrameworkError::CommandCheckFailed { .. } => return (),
-        _ => {
-            match error.ctx() {
-                Some(ctx) => {
-                    single_text_response(&ctx, "Something went wrong. blame Mikumin.", MessageState::ERROR, false).await;
-                }
-                None => return ()
-            }
+        _ => ()
+    };
+
+    match error.ctx() {
+        Some(ctx) => {
+            single_text_response(&ctx, "Something went wrong. blame Mikumin.", MessageState::ERROR, false).await;
         }
-    }
+        None => return ()
+    };
+    println!("{:?}", error)
 }
 
 pub async fn user_has_replay_role(ctx: impl CacheHttp, user: &serenity::User) -> Result<bool, Error> {
