@@ -13,7 +13,7 @@ pub async fn score(
     ctx: Context<'_>,
     #[description = "score id"] scoreid: Option<u64>,
     #[description = "score file"] scorefile: Option<serenity::Attachment>,
-    #[description = "reason"] _reason: Option<String>,
+    // #[description = "reason"] reason: Option<String>,
 ) -> Result<(), Error> {
     let suggestion: CreateMessage;
 
