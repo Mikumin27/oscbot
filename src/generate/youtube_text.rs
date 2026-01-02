@@ -1,6 +1,6 @@
 use rosu_v2::prelude as rosu;
 
-use crate::{huismetbenen, osu::{self, formatter::mods_string}};
+use crate::{apis::huismetbenen, osu::{self, formatter::mods_string}};
 
 pub async fn generate_title_with_score(score: &rosu::Score, map: &rosu::BeatmapExtended) -> String {
     let username: &String = &score.user.as_ref().expect("User must exist").username.to_string();
@@ -22,7 +22,6 @@ fn generate_title(map: &rosu::BeatmapExtended, username: &String, stars: f32, mo
 }
 
 pub fn generate_description(userid: u32, mapid: u32, score: Option<&rosu::Score>, time_string: Option<String>) -> String {
-
     let fmt = time::format_description::parse("[day].[month].[year] at [hour]:[minute]").unwrap();
     let timestamp = match time_string {
         Some(timestamp) => timestamp,

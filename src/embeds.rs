@@ -1,7 +1,7 @@
 use rosu_v2::prelude as rosu;
-use poise::serenity_prelude::{self as serenity, Colour};
+use poise::serenity_prelude::{self as serenity, Colour, CreateEmbed};
 
-use crate::{huismetbenen, osu};
+use crate::{apis::huismetbenen, osu};
 use crate::{Context, Error};
 use crate::discord_helper::MessageState;
 
@@ -24,9 +24,12 @@ pub fn get_embed_color(message_state: &MessageState) -> Colour {
 pub async fn single_text_response(ctx: &Context<'_>, text: &str, message_state: MessageState, ephemeral: bool) {
     let _ = ctx.send(
         poise::CreateReply::default().embed(
-            serenity::CreateEmbed::default().description(text).color(get_embed_color(&message_state))
-        ).ephemeral(ephemeral)
+            single_text_response_embed(text, message_state)).ephemeral(ephemeral)
     ).await;
+}
+
+pub fn single_text_response_embed(text: &str, message_state: MessageState) -> CreateEmbed {
+    serenity::CreateEmbed::default().description(text).color(get_embed_color(&message_state))
 }
 
 pub async fn score_embed_from_replay_file(replay: &osu_db::Replay, map: &rosu::BeatmapExtended) -> Result<serenity::CreateEmbed, Error> {
@@ -68,4 +71,54 @@ async fn score_embed(map: &rosu::BeatmapExtended, user: &rosu::UserExtended, sco
          .field("Combo:", max_combo.to_string() + "x", true)
          .field("Mods:", mods, true)
          .field("PP:", format!("{:.2}", pp.unwrap_or(0.0)), true))
+}
+
+pub fn render_and_upload_embed(
+    title: &String,
+    preparation_finished: bool,
+    render_replay: Option<String>,
+    video_uploaded: bool
+) -> Result<serenity::CreateEmbed, Error> {
+    let embed = serenity::CreateEmbed::default();
+    let author = serenity::CreateEmbedAuthor::new("Upload progress:");
+
+    let mut replay_rendered: bool = false;
+    let render_replay_string: String = match render_replay {
+        Some(string) => {
+            match string.as_str() {
+                "100%" => {
+                    replay_rendered = true;
+                    "done".to_string()
+                }
+                _ => string
+            }
+        },
+        None => if preparation_finished { "0%".into() } else { "awaiting".into() }
+    };
+
+    let upload_video_string = if !replay_rendered {
+        "awaiting"
+    }
+    else {
+        if video_uploaded { "done" } else { "ongoing" }
+    };
+
+    Ok(embed.author(author).color(get_embed_color(&MessageState::SUCCESS))
+         .title(title)
+         .field("Prepare replay:", if preparation_finished {"Finished"} else {"Ongoing..."}, false)
+         .field("Render replay:", render_replay_string, false)
+         .field("Upload Video:", upload_video_string, false))
+}
+
+pub fn upload_result_embed (
+    title: &String,
+    youtube_id: &String,
+) -> Result<serenity::CreateEmbed, Error> {
+    let embed = serenity::CreateEmbed::default();
+    let author = serenity::CreateEmbedAuthor::new("Render and upload");
+
+    Ok(embed.author(author)
+            .color(get_embed_color(&MessageState::SUCCESS))
+            .title(title)
+            .description(format!("Video has been uploaded successfully: https://youtu.be/{}", youtube_id)))
 }

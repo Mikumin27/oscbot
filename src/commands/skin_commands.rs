@@ -2,7 +2,15 @@ use poise::{CreateReply, serenity_prelude::{self as serenity, CreateEmbed, Creat
 use url::Url;
 
 use crate::{Context, Error, discord_helper::MessageState, embeds::single_text_response, firebase};
+use crate::discord_helper::user_has_replay_role;
 
+async fn has_replay_role(ctx: Context<'_>) -> Result<bool, Error> {
+    if !user_has_replay_role(ctx, ctx.author()).await.unwrap() {
+        single_text_response(&ctx, "No permission L", MessageState::INFO, true).await;
+        return Ok(false);
+    }
+    Ok(true)
+}
 
 fn is_url(s: &str) -> bool {
     Url::parse(s).is_ok()
@@ -28,7 +36,7 @@ pub async fn set(
 }
 
 /// Get the url to a members skins
-#[poise::command(slash_command)]
+#[poise::command(slash_command, check = "has_replay_role")]
 pub async fn get(
     ctx: Context<'_>,
     #[description = "Desired member"] member: Option<serenity::Member>,

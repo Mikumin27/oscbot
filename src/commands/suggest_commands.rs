@@ -16,7 +16,6 @@ pub async fn score(
     // #[description = "reason"] reason: Option<String>,
 ) -> Result<(), Error> {
     let suggestion: CreateMessage;
-
     ctx.defer().await?;
     if scoreid.is_some() {
         let unwrapped_score_id = scoreid.unwrap();
@@ -31,17 +30,28 @@ pub async fn score(
                 return Ok(());
             }
         };
-        let button_id = format!("thumbnail:{}", score.id);
-        let button = serenity::CreateButton::new(button_id)
+
+        if !score.has_replay {
+            embeds::single_text_response(&ctx, "Score has no replay to download. Please provide the replay file", MessageState::ERROR, false).await;
+            return Ok(());
+        }
+
+        let render_replay_id = format!("thumbnail:{}", score.id);
+        let render_replay_button = serenity::CreateButton::new(render_replay_id)
             .label("Render Thumbnail")
             .emoji(crate::emojis::SATA_ANDAGI)
             .style(serenity::ButtonStyle::Primary);
 
+        let upload_score_id = format!("upload:{}", score.id);
+        let upload_score_button = serenity::CreateButton::new(upload_score_id)
+            .label("Upload to youtube")
+            .emoji(crate::emojis::SATA_ANDAGI)
+            .style(serenity::ButtonStyle::Primary);
         let map = osu::get_osu_instance().beatmap().map_id(score.map_id).await.expect("Beatmap exists");
         let embed = embeds::score_embed_from_score(&score, &map).await?;
         suggestion = serenity::CreateMessage::new()
             .embed(embed.footer(serenity::CreateEmbedFooter::new(format!("Requested by @{}", ctx.author().name))))
-            .components(vec![serenity::CreateActionRow::Buttons(vec![button])]);
+            .components(vec![serenity::CreateActionRow::Buttons(vec![upload_score_button, render_replay_button])]);
 
         firebase::score::insert_score(&unwrapped_score_id.to_string()).await;
 
@@ -61,10 +71,9 @@ pub async fn score(
             embeds::single_text_response(&ctx, "Score file has already been requested", MessageState::WARN, false).await;
             return Ok(());
         }
-        let checksum = replay.beatmap_hash.as_ref().unwrap_or(&default_checksum);
-        let map: rosu::BeatmapExtended = match osu::get_osu_instance().beatmap().checksum(checksum).await {
-            Ok(map) => map,
-            Err(_) => {
+        let map: rosu::BeatmapExtended = match osu::get_beatmap_from_checksum(&replay.beatmap_hash).await {
+            Some(map) => map,
+            None => {
                 embeds::single_text_response(&ctx, "Cannot find map related to the replay", MessageState::WARN, false).await;
                 return Ok(());
             },

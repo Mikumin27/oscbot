@@ -2,7 +2,7 @@ use poise::serenity_prelude as serenity;
 
 mod embeds;
 mod firebase;
-mod huismetbenen;
+mod apis;
 mod osu;
 mod emojis;
 mod defaults;
@@ -18,7 +18,7 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 
 #[tokio::main]
 async fn main() {
-    dotenv::dotenv().ok();
+    dotenvy::dotenv().ok();
     osu::initialize_osu().await.unwrap();
     firebase::initialize_firebase().await.unwrap();
 
@@ -29,6 +29,7 @@ async fn main() {
         .options(poise::FrameworkOptions {
             commands: commands::slash_commands_bundle(),
             event_handler: |ctx, event, framework, data| {
+                
                 events::handle_events(&ctx, &event, &framework, &data)
             },
             on_error: |error| {

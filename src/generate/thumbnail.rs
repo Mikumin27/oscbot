@@ -4,7 +4,7 @@ use imageproc::drawing::draw_text_mut;
 use osu_db::Replay;
 use rosu_v2::prelude::{self as rosu};
 use std::io::Cursor;
-use crate::{generate::image_binaries, huismetbenen, osu};
+use crate::{generate::image_binaries, apis::huismetbenen, osu};
 
 const SPACE_BETWEEN_MODS: u32 = 20;
 
@@ -67,7 +67,7 @@ fn write_centered(img: &mut DynamicImage, color: &Rgba<u8>, cx: i32, cy: i32, sc
     draw_text_mut(img, *color, x, y, scale, &font, text);
 }
 
-pub async fn generate_thumbnail_from_replay_file(replay: &Replay, map: rosu::BeatmapExtended, subtitle: &str) -> Vec<u8> {
+pub async fn generate_thumbnail_from_replay_file(replay: &Replay, map: &rosu::BeatmapExtended, subtitle: &str) -> Vec<u8> {
     let user = osu::get_osu_instance().user(replay.player_name.as_ref().expect("Expect a username")).await.expect("Player to exist");
     let result = huismetbenen::calculate_score_by_replay(replay, &map).await;
     let mods = osu::formatter::convert_osu_db_to_mod_array(replay.mods);
@@ -75,13 +75,13 @@ pub async fn generate_thumbnail_from_replay_file(replay: &Replay, map: rosu::Bea
     generate_thumbnail(user, map, subtitle, Some(result.pp), result.accuracy, replay.max_combo as u32, mods, &grade).await
 }
 
-pub async fn generate_thumbnail_from_score(score: rosu::Score, map: rosu::BeatmapExtended, subtitle: &str) -> Vec<u8> {
+pub async fn generate_thumbnail_from_score(score: &rosu::Score, map: &rosu::BeatmapExtended, subtitle: &str) -> Vec<u8> {
     let user = score.get_user(osu::get_osu_instance()).await.expect("User should exist");
     let mods: Vec<String> = score.mods.iter().map(|beatmap| beatmap.acronym().to_string()).collect();
     generate_thumbnail(user, map, subtitle, score.pp, score.accuracy, score.max_combo, mods, &score.grade).await
 }
 
-async fn generate_thumbnail(user: rosu::UserExtended, map: rosu::BeatmapExtended, subtitle: &str, pp: Option<f32>, accuracy: f32, max_combo: u32, mods: Vec<String>, grade:&rosu::Grade) -> Vec<u8> {
+async fn generate_thumbnail(user: rosu::UserExtended, map: &rosu::BeatmapExtended, subtitle: &str, pp: Option<f32>, accuracy: f32, max_combo: u32, mods: Vec<String>, grade:&rosu::Grade) -> Vec<u8> {
     let user_stats = user.statistics.as_ref().expect("Stats must exist");
     let mapset = map.mapset.as_ref().expect("Mapset must exist");
 
