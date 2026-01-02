@@ -71,6 +71,7 @@ pub async fn handle_error(error: poise::FrameworkError<'_, Data, Error>) -> () {
         },
         _ => match error.ctx() {
                 Some(ctx) => {
+                    println!("{:?}", error);
                     single_text_response(&ctx, "Something went wrong. blame Mikumin.", MessageState::ERROR, false).await;
                 },
                 None => (),
