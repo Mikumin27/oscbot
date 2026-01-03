@@ -1,6 +1,6 @@
 use std::vec;
 
-use poise::serenity_prelude::{self as serenity, CreateAttachment, CreateMessage};
+use poise::serenity_prelude::{self as serenity, CreateAttachment, CreateButton, CreateMessage};
 use rosu_v2::prelude as rosu;
 use crate::{Context, Error, defaults, discord_helper::MessageState, embeds, firebase, osu};
 
@@ -35,24 +35,32 @@ pub async fn score(
             embeds::single_text_response(&ctx, "Score has no replay to download. Please provide the replay file", MessageState::ERROR, false).await;
             return Ok(());
         }
-
+        let mut buttons: Vec<CreateButton> = vec![];
         let render_replay_id = format!("thumbnail:{}", score.id);
         let render_replay_button = serenity::CreateButton::new(render_replay_id)
             .label("Render Thumbnail")
             .emoji(crate::emojis::SATA_ANDAGI)
             .style(serenity::ButtonStyle::Primary);
 
-        let upload_score_id = format!("upload:{}", score.id);
-        let upload_score_button = serenity::CreateButton::new(upload_score_id)
+        buttons.push(render_replay_button);
+
+        if score.mode == rosu::GameMode::Osu {
+            let upload_score_id = format!("upload:{}", score.id);
+            let upload_score_button = serenity::CreateButton::new(upload_score_id)
             .label("Upload to youtube")
             .emoji(crate::emojis::SATA_ANDAGI)
             .style(serenity::ButtonStyle::Primary);
+            buttons.push(upload_score_button);
+        }
         let map = osu::get_osu_instance().beatmap().map_id(score.map_id).await.expect("Beatmap exists");
         let embed = embeds::score_embed_from_score(&score, &map).await?;
+
+
         suggestion = serenity::CreateMessage::new()
             .embed(embed.footer(serenity::CreateEmbedFooter::new(format!("Requested by @{}", ctx.author().name))))
-            .components(vec![serenity::CreateActionRow::Buttons(vec![upload_score_button, render_replay_button])]);
+            .components(vec![serenity::CreateActionRow::Buttons(buttons)]);
 
+            
         firebase::score::insert_score(&unwrapped_score_id.to_string()).await;
 
     }

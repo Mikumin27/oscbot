@@ -5,8 +5,22 @@ pub fn map_title(map: &rosu::BeatmapExtended) -> String {
     format!("{} - {} [{}]", mapset.artist, mapset.title, map.version)
 }
 
-pub fn osu_hits(score_statistics: &rosu::ScoreStatistics) -> String {
-    format!("{}/{}/{}/{}", score_statistics.great, score_statistics.ok, score_statistics.meh, score_statistics.miss)
+pub fn game_mode_name(mode: rosu::GameMode) -> String {
+    match mode {
+        rosu::GameMode::Osu => "osu!standard".to_string(),
+        rosu::GameMode::Mania => "osu!mania".to_string(),
+        rosu::GameMode::Taiko => "osu!taiko".to_string(),
+        rosu::GameMode::Catch => "osu!catch".to_string(),
+    }
+}
+
+pub fn osu_hits(score_statistics: &rosu::ScoreStatistics, game_mode: &rosu::GameMode) -> String {
+    match game_mode {
+        rosu::GameMode::Osu => format!("{}/{}/{}/{}", score_statistics.great, score_statistics.ok, score_statistics.meh, score_statistics.miss),
+        rosu::GameMode::Mania => format!("{}/{}/{}/{}/{}/{}", score_statistics.perfect, score_statistics.great, score_statistics.good, score_statistics.ok, score_statistics.meh, score_statistics.miss),
+        rosu::GameMode::Taiko => format!("{}/{}/{}", score_statistics.great, score_statistics.ok, score_statistics.miss),
+        rosu::GameMode::Catch => format!("{}/{}", score_statistics.great, score_statistics.miss),
+    }
 }
 
 pub fn score_url(score_id: &u64) -> String {

@@ -37,21 +37,32 @@ pub async fn score_embed_from_replay_file(replay: &osu_db::Replay, map: &rosu::B
     let result = huismetbenen::calculate_score_by_replay(replay, map).await;
     let hits = format!("{}/{}/{}/{}", replay.count_300, replay.count_100, replay.count_50, replay.count_miss);
     let mods = osu::formatter::convert_osu_db_to_mod_array(replay.mods).join("");
-    score_embed(map, &user, Some(replay.online_score_id), replay.score, result.accuracy, hits, replay.max_combo as u32, mods, Some(result.pp)).await
+    score_embed(map, &user, Some(replay.online_score_id), replay.score, result.accuracy, hits, replay.max_combo as u32, mods, Some(result.pp), rosu::GameMode::from(replay.mode.raw())).await
 }
 
 pub async fn score_embed_from_score(score: &rosu::Score, map: &rosu::BeatmapExtended) -> Result<serenity::CreateEmbed, Error> {
     let user = score.get_user(osu::get_osu_instance()).await.expect("User has not been found");
-    let hits = osu::formatter::osu_hits(&score.statistics);
+    let hits = osu::formatter::osu_hits(&score.statistics, &score.mode);
     let mods = osu::formatter::mods_string(&score.mods);
-    score_embed(map, &user, Some(score.id), score.score, score.accuracy, hits, score.max_combo, mods, score.pp).await
+    score_embed(map, &user, Some(score.id), score.score, score.accuracy, hits, score.max_combo, mods, score.pp, score.mode).await
 }
 
-async fn score_embed(map: &rosu::BeatmapExtended, user: &rosu::UserExtended, score_id: Option<u64>, score: u32, accuracy: f32, hits: String, max_combo: u32, mods: String, pp: Option<f32>) -> Result<serenity::CreateEmbed, Error> {
+async fn score_embed(
+    map: &rosu::BeatmapExtended,
+    user: &rosu::UserExtended,
+    score_id: Option<u64>,
+    score: u32,
+    accuracy: f32,
+    hits: String,
+    max_combo: u32,
+    mods: String,
+    pp: Option<f32>,
+    mode: rosu::GameMode,
+) -> Result<serenity::CreateEmbed, Error> {
     let mapset = map.mapset.as_ref().expect("Mapset has not been found");
     let embed = serenity::CreateEmbed::default();
     let title = osu::formatter::map_title(&map);
-    let mut author = serenity::CreateEmbedAuthor::new(format!("Score done by {}", user.username));
+    let mut author = serenity::CreateEmbedAuthor::new(format!("Score done by {} - {}", user.username, osu::formatter::game_mode_name(mode)));
 
     match score_id {
         Some(score_id) => {

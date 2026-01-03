@@ -1,4 +1,5 @@
 use poise::{CreateReply, serenity_prelude as serenity};
+use rosu_v2::prelude as rosu;
 use rosu_v2::prelude::BeatmapExtended;
 use crate::discord_helper::{ContextForFunctions, MessageState};
 use crate::embeds::single_text_response;
@@ -153,7 +154,11 @@ pub async fn render_and_upload (
             }
         };
         if !score.has_replay {
-            single_text_response(&ctx, "Score has no replay to download. Please provide the replay file", MessageState::ERROR, false).await;
+            single_text_response(&ctx, "Score has no replay to download. Please provide the replay file", MessageState::WARN, false).await;
+            return Ok(());
+        }
+        if score.mode != rosu::GameMode::Osu {
+            single_text_response(&ctx, "Rendering a gamemode other than standard is currently not possible.", MessageState::WARN, false).await;
             return Ok(());
         }
         let replay = osu::get_osu_instance().replay_raw(score.id).await.unwrap();
@@ -172,6 +177,10 @@ pub async fn render_and_upload (
                 return Ok(());
             },
         };
+        if replay.mode != osu_db::Mode::Standard {
+            single_text_response(&ctx, "Rendering a gamemode other than standard is currently not possible.", MessageState::WARN, false).await;
+            return Ok(());
+        }
         let user = osu::get_osu_instance().user(replay.player_name.as_ref().expect("Expect a username")).await.expect("Player to exist");
 
         let map: BeatmapExtended = match osu::get_beatmap_from_checksum(&replay.beatmap_hash).await {
