@@ -1,8 +1,8 @@
 {
 	"General": {
-		"OsuSongsDir": "./Songs",
-		"OsuSkinsDir": "./Skins",
-		"OsuReplaysDir": "./Replays",
+		"OsuSongsDir": "/app/danser/Songs",
+		"OsuSkinsDir": "/app/danser/Skins",
+		"OsuReplaysDir": "/app/danser/Replays",
 		"DiscordPresenceOn": false,
 		"UnpackOszFiles": true,
 		"VerboseImportLogs": false
@@ -28,7 +28,7 @@
 		"Offset": 0,
 		"OnlineOffset": false,
 		"HitsoundPositionMultiplier": 1,
-		"IgnoreBeatmapSamples": false,
+		"IgnoreBeatmapSamples": true,
 		"IgnoreBeatmapSampleVolume": false,
 		"PlayNightcoreSamples": true,
 		"BeatScale": 1.2,
@@ -47,7 +47,7 @@
 		"SmokeKey": "C",
 		"ScreenshotKey": "F2",
 		"MouseButtonsDisabled": true,
-		"MouseHighPrecision": false,
+		"MouseHighPrecision": true,
 		"MouseSensitivity": 1
 	},
 	"Gameplay": {
@@ -61,8 +61,8 @@
 			"ShowPositionalMisses": true,
 			"PositionalMissScale": 1.5,
 			"ShowUnstableRate": true,
-			"UnstableRateDecimals": 0,
-			"UnstableRateScale": 1,
+			"UnstableRateDecimals": 2,
+			"UnstableRateScale": 1.5,
 			"StaticUnstableRate": false,
 			"ScaleWithSpeed": false
 		},
@@ -77,10 +77,11 @@
 			"Align": "Right",
 			"ShowUnstableRate": false,
 			"UnstableRateScale": 1,
-			"UnstableRateDecimals": 0,
+			"UnstableRateDecimals": 2,
 			"StaticUnstableRate": false,
 			"CapPositionalMisses": true,
-			"AngleNormalized": false
+			"AngleNormalized": false,
+			"UseFallbackSkin": true
 		},
 		"Score": {
 			"Show": true,
@@ -119,7 +120,7 @@
 				"Saturation": 0,
 				"Value": 1
 			},
-			"Decimals": 0,
+			"Decimals": 2,
 			"Align": "CentreLeft",
 			"ShowInResults": true,
 			"ShowPPComponents": false,
@@ -127,34 +128,34 @@
 		},
 		"HitCounter": {
 			"Show": true,
-			"Scale": 1,
+			"Scale": 1.1,
 			"Opacity": 1,
-			"XPosition": 5,
-			"YPosition": 190,
+			"XPosition": 10,
+			"YPosition": 195,
 			"Color300": {
 				"Hue": 0,
 				"Saturation": 0,
 				"Value": 1
 			},
 			"Color100": {
-				"Hue": 0,
-				"Saturation": 0,
-				"Value": 1
+				"Hue": 120,
+				"Saturation": 0.73,
+				"Value": 0.75
 			},
 			"Color50": {
-				"Hue": 0,
-				"Saturation": 0,
-				"Value": 1
+				"Hue": 43,
+				"Saturation": 0.71,
+				"Value": 0.7
 			},
 			"ColorMiss": {
 				"Hue": 0,
-				"Saturation": 0,
+				"Saturation": 0.71,
 				"Value": 1
 			},
 			"ColorSB": {
-				"Hue": 0,
-				"Saturation": 0,
-				"Value": 1
+				"Hue": 120,
+				"Saturation": 0.73,
+				"Value": 0.75
 			},
 			"Spacing": 48,
 			"FontScale": 1,
@@ -162,7 +163,7 @@
 			"ValueAlign": "Left",
 			"Vertical": false,
 			"Show300": false,
-			"ShowSliderBreaks": false
+			"ShowSliderBreaks": true
 		},
 		"StrainGraph": {
 			"Show": true,
@@ -170,7 +171,7 @@
 			"XPosition": 5,
 			"YPosition": 310,
 			"Align": "BottomLeft",
-			"Width": 130,
+			"Width": 200,
 			"Height": 70,
 			"BgColor": {
 				"Hue": 0,
@@ -185,8 +186,8 @@
 			"Outline": {
 				"Show": false,
 				"Width": 2,
-				"InnerDarkness": 0.5,
-				"InnerOpacity": 0.5
+				"InnerDarkness": 1,
+				"InnerOpacity": 1
 			}
 		},
 		"KeyOverlay": {
@@ -202,11 +203,11 @@
 			"Opacity": 1,
 			"XOffset": 0,
 			"YOffset": 0,
-			"Mode": "Normal",
+			"Mode": "Country",
 			"ModsOnly": false,
 			"AlignRight": false,
 			"HideOthers": false,
-			"ShowAvatars": false,
+			"ShowAvatars": true,
 			"ExplosionScale": 1
 		},
 		"Mods": {
@@ -221,7 +222,7 @@
 			"AdditionalSpacing": 0
 		},
 		"Boundaries": {
-			"Enabled": true,
+			"Enabled": false,
 			"BorderThickness": 1,
 			"BorderFill": 1,
 			"BorderColor": {
@@ -256,8 +257,8 @@
 		"LazerClassicScore": false
 	},
 	"Skin": {
-		"CurrentSkin": "OSC",
-		"FallbackSkin": "OSC",
+		"CurrentSkin": "- Barely still Jace",
+		"FallbackSkin": "default",
 		"UseColorsFromSkin": true,
 		"UseBeatmapColors": false,
 		"Cursor": {
@@ -319,6 +320,7 @@
 		"Sliders": {
 			"ForceSliderBallTexture": true,
 			"DrawEndCircles": true,
+			"DrawReverseArrows": true,
 			"DrawSliderFollowCircle": true,
 			"DrawScorePoints": true,
 			"SliderMerge": false,
@@ -331,8 +333,8 @@
 				"CustomResolutionY": 1080
 			},
 			"Snaking": {
-				"In": true,
-				"Out": true,
+				"In": false,
+				"Out": false,
 				"OutFadeInstant": true,
 				"DurationMultiplier": 0,
 				"FadeMultiplier": 0
@@ -413,7 +415,7 @@
 		"DrawObjects": true,
 		"DrawCursors": true,
 		"Scale": 1,
-		"OsuShift": false,
+		"OsuShift": true,
 		"ShiftX": 0,
 		"ShiftY": 0,
 		"ScaleStoryboardWithPlayfield": false,
@@ -426,7 +428,7 @@
 			"Duration": 5
 		},
 		"Background": {
-			"LoadStoryboards": true,
+			"LoadStoryboards": false,
 			"LoadVideos": false,
 			"FlashToTheBeat": false,
 			"Dim": {
@@ -435,7 +437,7 @@
 				"Breaks": 0.5
 			},
 			"Parallax": {
-				"Enabled": true,
+				"Enabled": false,
 				"Amount": 0.1,
 				"Speed": 0.5
 			},
@@ -468,17 +470,17 @@
 		},
 		"Bloom": {
 			"Enabled": false,
-			"BloomToTheBeat": true,
-			"BloomBeatAddition": 0.3,
-			"Threshold": 0,
-			"Blur": 0.6,
-			"Power": 0.7
+			"BloomToTheBeat": false,
+			"BloomBeatAddition": 0.25,
+			"Threshold": 0.2,
+			"Blur": 0.4,
+			"Power": 0.3
 		}
 	},
 	"CursorDance": {
 		"Movers": [
 			{
-				"Mover": "spline",
+				"Mover": "linear",
 				"SliderDance": false,
 				"RandomSliderDance": false
 			}
@@ -495,6 +497,7 @@
 		"Battle": false,
 		"DoSpinnersTogether": true,
 		"TAGSliderDance": false,
+		"Resolve2BAfterTAG": false,
 		"MoverSettings": {
 			"Bezier": [
 				{
@@ -580,11 +583,11 @@
 		"DanserName": "danser"
 	},
 	"Recording": {
-		"FrameWidth": 1920,
-		"FrameHeight": 1080,
-		"FPS": 144,
+		"FrameWidth": 3840,
+		"FrameHeight": 2160,
+		"FPS": 60,
 		"EncodingFPSCap": 0,
-		"Encoder": "libx264",
+		"Encoder": "h264_nvenc",
 		"libx264": {
 			"RateControl": "crf",
 			"Bitrate": "10M",
@@ -612,15 +615,15 @@
 		"h264_nvenc": {
 			"RateControl": "cq",
 			"Bitrate": "10M",
-			"CQ": 22,
+			"CQ": 20,
 			"Profile": "high",
-			"Preset": "p7",
+			"Preset": "p3",
 			"AdditionalOptions": ""
 		},
 		"hevc_nvenc": {
 			"RateControl": "cq",
 			"Bitrate": "10M",
-			"CQ": 24,
+			"CQ": 18,
 			"Preset": "p7",
 			"AdditionalOptions": ""
 		},
@@ -699,9 +702,9 @@
 		"AudioFilters": "",
 		"OutputDir": "videos",
 		"Container": "mp4",
-		"ShowFFmpegLogs": false,
+		"ShowFFmpegLogs": true,
 		"MotionBlur": {
-			"Enabled": true,
+			"Enabled": false,
 			"OversampleMultiplier": 16,
 			"BlendFrames": 24,
 			"BlendFunctionID": 27,
