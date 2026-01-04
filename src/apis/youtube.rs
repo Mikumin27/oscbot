@@ -25,6 +25,10 @@ pub async fn wait_open(path: &Path, timeout: Duration) -> std::io::Result<std::f
 // thank god for chatGPT
 pub async fn upload(video_path: &String, title: String, description: String, thumbnail: Vec<u8>) -> Result<String, Error> {
 
+    // Always persist OAuth tokens into the project working directory.
+    // This is intentionally not configurable to keep local + Docker behavior identical.
+    let token_path = "token.json";
+
     // Read OAuth client secret downloaded from Google Cloud Console
     let secret = yup_oauth2::read_application_secret("youtube_secret.json").await?;
 
@@ -33,7 +37,7 @@ pub async fn upload(video_path: &String, title: String, description: String, thu
         secret,
         yup_oauth2::InstalledFlowReturnMethod::HTTPRedirect,
     )
-    .persist_tokens_to_disk("token.json")
+    .persist_tokens_to_disk(token_path)
     .build()
     .await?;
 
@@ -82,15 +86,20 @@ pub async fn upload(video_path: &String, title: String, description: String, thu
         .await?;
 
     println!("Uploaded! id={:?}", uploaded_video.id);
+    let video_id = uploaded_video.id.unwrap();
+
+    if thumbnail.is_empty() {
+        println!("No thumbnail bytes provided; skipping thumbnail set.");
+        return Ok(video_id);
+    }
 
     let thumb_mime = "image/png".parse().unwrap(); // or "image/jpeg"
 
-    let video_id = uploaded_video.id.unwrap();
     // set thumbnail
     let (_resp, thumb_resp) = hub
         .thumbnails()
         .set(&video_id)
-        .add_scope(youtube::api::Scope::Upload) // scopes allowed include youtube.upload/youtube/youtube.force-ssl/... :contentReference[oaicite:1]{index=1}
+        .add_scope(youtube::api::Scope::Upload)
         .upload(Cursor::new(thumbnail), thumb_mime)
         .await?;
 
