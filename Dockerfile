@@ -1,4 +1,4 @@
-FROM rust:slim AS chef
+FROM rustlang/rust:nightly-slim AS builder
 
 RUN apt-get update && apt-get install -y \
     pkg-config \
@@ -7,46 +7,43 @@ RUN apt-get update && apt-get install -y \
     build-essential \
  && rm -rf /var/lib/apt/lists/*
 
-RUN rustup toolchain install nightly --profile minimal && \
-    rustup default nightly && \
-    cargo install cargo-chef --locked
-
 WORKDIR /app
 
-FROM chef AS planner
+RUN USER=root cargo new --bin oscbot
+WORKDIR /app/oscbot
 
-WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
+
+RUN cargo build --release
+
+RUN rm src/*.rs
+
 COPY src ./src
-RUN cargo chef prepare --recipe-path recipe.json
 
-FROM chef AS builder
-
-WORKDIR /app
-COPY --from=planner /app/recipe.json recipe.json
-RUN cargo chef cook --release --recipe-path recipe.json
-
-COPY . .
-
-ARG BUILD_PROFILE=release
-ENV CARGO_BUILD_JOBS=1
-
-RUN if [ "$BUILD_PROFILE" = "release" ]; then \
-        cargo build --locked --release; \
-    else \
-        cargo build --locked; \
-    fi \
+RUN cargo build --release \
  && mkdir -p /out \
- && cp "/app/target/${BUILD_PROFILE}/oscbot" /out/oscbot
+ && cp target/release/oscbot /out/oscbot
 
 FROM git.sulej.net/osc/skins-image:latest
 
+USER root
+
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+      libglvnd0 \
+      libgl1 \
+      libegl1 \
+  && rm -rf /var/lib/apt/lists/*
+
+ENV LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64:${LD_LIBRARY_PATH}
+
+ENV __GLX_VENDOR_LIBRARY_NAME=nvidia
+
 ENV OSC_BOT_DANSER_PATH=/app/danser
 ENV PATH="/app/danser:${PATH}"
+
 WORKDIR /app/oscbot
 
 COPY --from=builder /out/oscbot /app/oscbot/oscbot
-COPY default-danser.json /app/oscbot/default-danser.json
 COPY default-danser.json /app/danser/settings/default.json
 COPY src/generate/data /app/oscbot/src/generate/data
 
@@ -55,9 +52,9 @@ RUN mkdir -p \
       /app/oscbot/Skins \
       /app/oscbot/Replays \
       /app/oscbot/videos \
-      /app/oscbot/videoForRegen \
  && chmod +x /app/oscbot/oscbot \
- && chown -R 1000:1000 /app/oscbot /app/danser
+ && chown -R 1000:1000 /app/
 
 USER 1000:1000
+
 CMD ["/app/oscbot/oscbot"]

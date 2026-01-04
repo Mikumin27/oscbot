@@ -256,7 +256,7 @@
   },
   "Skin": {
     "CurrentSkin": "OSC",
-    "FallbackSkin": "Default",
+    "FallbackSkin": "default",
     "UseColorsFromSkin": true,
     "UseBeatmapColors": false,
     "Cursor": {
@@ -602,9 +602,9 @@
     "h264_nvenc": {
       "RateControl": "cq",
       "Bitrate": "10M",
-      "CQ": 10,
+      "CQ": 20,
       "Profile": "high",
-      "Preset": "p7",
+      "Preset": "p3",
       "AdditionalOptions": ""
     },
     "hevc_nvenc": {
@@ -668,9 +668,9 @@
     "Container": "mp4",
     "ShowFFmpegLogs": true,
     "MotionBlur": {
-      "Enabled": true,
-      "OversampleMultiplier": 16,
-      "BlendFrames": 24,
+      "Enabled": false,
+      "OversampleMultiplier": 4,
+      "BlendFrames": 6,
       "BlendFunctionID": 27,
       "GaussWeightsMult": 1.5
     }
