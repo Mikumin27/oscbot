@@ -256,7 +256,7 @@
   },
   "Skin": {
     "CurrentSkin": "OSC",
-    "FallbackSkin": "Default",
+    "FallbackSkin": "default",
     "UseColorsFromSkin": true,
     "UseBeatmapColors": false,
     "Cursor": {
