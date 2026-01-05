@@ -79,6 +79,7 @@ pub async fn score(
     }
 
     let mut buttons: Vec<CreateButton> = vec![];
+    
     if mode == rosu::GameMode::Osu {
         let approve_id = format!("approveWithUpload:{}", parameters);
         let approve_button = serenity::CreateButton::new(approve_id)
