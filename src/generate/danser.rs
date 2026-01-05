@@ -15,7 +15,6 @@ use tokio::{fs::{File, create_dir}, io::AsyncWriteExt};
 
 use crate::discord_helper::ContextForFunctions;
 use crate::firebase::user;
-use crate::generate::danser;
 use crate::{Error, embeds};
 
 fn fallback_latest_rendered_video(output_dir: &str, started_at: SystemTime) -> Option<String> {
@@ -67,7 +66,7 @@ pub async fn render(cff: &ContextForFunctions<'_>, title: &String, beatmap_hash:
     let skin_path = &format!("{}/Skins/{}", env::var("OSC_BOT_DANSER_PATH").unwrap(), user_id);
     let replay_path = &format!("{}/Replays/{}/{}.osr", env::var("OSC_BOT_DANSER_PATH").unwrap(), beatmap_hash, replay_reference);
 
-    let danser_cli = env::var("OSC_BOT_DANSER_CLI").unwrap_or_else(|_| "danser-cli".to_string());
+    let danser_cli = env::var("OSC_BOT_DANSER_CLI").unwrap_or("danser-cli".to_string());
     let stream_logs = env::var("OSC_BOT_DANSER_LOG")
         .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
         .unwrap_or(true);
@@ -78,7 +77,7 @@ pub async fn render(cff: &ContextForFunctions<'_>, title: &String, beatmap_hash:
     match user::get_user_skin(&user_id.to_string()).await {
         Some(url) => {
             if !Path::new(skin_path).is_dir() {
-                danser::attach_skin_file(*user_id, &url).await?;
+                attach_skin_file(*user_id, &url).await?;
             }
             out.args(["-skin", &user_id.to_string()]);
         },
@@ -202,7 +201,7 @@ pub async fn render(cff: &ContextForFunctions<'_>, title: &String, beatmap_hash:
 }
 
 pub async fn attach_replay(beatmap_hash: &String, replay_reference: &String, bytes: &Vec<u8>) -> Result<(), Error> {
-    let replay_path = &format!("{}/Replays/{}", env::var("OSC_BOT_DANSER_PATH").unwrap(), beatmap_hash);
+    let replay_path = &format!("{}/Replays/{}", env::var("OSC_BOT_DANSER_PATH").expect("OSC_BOT_DANSER_PATH"), beatmap_hash);
     if !Path::new(replay_path).is_dir() {
         create_dir(&replay_path).await?;
     }
@@ -214,7 +213,7 @@ pub async fn attach_replay(beatmap_hash: &String, replay_reference: &String, byt
 }
 
 pub async fn get_replay(replay_reference: &String, beatmap_hash: &String) -> Result<osu_db::Replay, Error> {
-    let replay_path = &format!("{}/Replays/{}/{}.osr", env::var("OSC_BOT_DANSER_PATH").unwrap(), beatmap_hash, replay_reference);
+    let replay_path = &format!("{}/Replays/{}/{}.osr", env::var("OSC_BOT_DANSER_PATH").expect("OSC_BOT_DANSER_PATH"), beatmap_hash, replay_reference);
     let replay = osu_db::Replay::from_file(replay_path).unwrap();
     Ok(replay)
 }
