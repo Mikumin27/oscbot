@@ -5,6 +5,7 @@ use std::env;
 use std::path::Path;
 use std::collections::VecDeque;
 use std::time::{Duration, SystemTime};
+use tokio::fs;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use std::io::Write;
 use tokio::process::Command;
@@ -62,6 +63,7 @@ fn fallback_latest_rendered_video(output_dir: &str, started_at: SystemTime) -> O
 }
 
 pub async fn render(cff: &ContextForFunctions<'_>, title: &String, beatmap_hash: &String, replay_reference: &String, user_id: &u32) -> Result<String, Error> {
+    tracing::info!("Begin rendering replay");
     let started_at = SystemTime::now();
     let skin_path = &format!("{}/Skins/{}", env::var("OSC_BOT_DANSER_PATH").unwrap(), user_id);
     let replay_path = &format!("{}/Replays/{}/{}.osr", env::var("OSC_BOT_DANSER_PATH").unwrap(), beatmap_hash, replay_reference);
@@ -133,9 +135,9 @@ pub async fn render(cff: &ContextForFunctions<'_>, title: &String, beatmap_hash:
 
                 if stream_logs {
                     if stream == "stderr" {
-                        eprintln!("[danser {stream}] {line}");
+                        tracing::error!(stream = stream, line = line, "Danser has failed");
                     } else {
-                        println!("[danser {stream}] {line}");
+                        tracing::debug!("[danser {stream}] {line}");
                     }
                     // Ensure logs show up promptly in non-tty Docker logging.
                     let _ = std::io::stdout().flush();
@@ -150,7 +152,8 @@ pub async fn render(cff: &ContextForFunctions<'_>, title: &String, beatmap_hash:
                 if line.contains("Progress") {
                     if let Some((_, rest)) = line.split_once("Progress: ") {
                         cff.edit(
-                            embeds::render_and_upload_embed(title, true, Some(rest.to_string()), false)?
+                            embeds::render_and_upload_embed(title, true, Some(rest.to_string()), false)?,
+                            vec![]
                         ).await?;
                     }
                 }
@@ -170,6 +173,7 @@ pub async fn render(cff: &ContextForFunctions<'_>, title: &String, beatmap_hash:
         if exit_status.is_none() {
             let _ = danser_terminal.wait().await;
         }
+        tracing::info!("Replay has been rendered successfully");
         return Ok(path);
     }
 
@@ -178,6 +182,7 @@ pub async fn render(cff: &ContextForFunctions<'_>, title: &String, beatmap_hash:
     let output_dir = format!("{}/videos", env::var("OSC_BOT_DANSER_PATH").unwrap());
     if exit_status.map(|s| s.success()).unwrap_or(false) {
         if let Some(path) = fallback_latest_rendered_video(&output_dir, started_at) {
+            tracing::info!("Replay has been rendered successfully");
             return Ok(path);
         }
     }
@@ -200,6 +205,7 @@ pub async fn render(cff: &ContextForFunctions<'_>, title: &String, beatmap_hash:
 
 pub async fn attach_replay(beatmap_hash: &String, replay_reference: &String, bytes: &Vec<u8>) -> Result<(), Error> {
     let replay_path = &format!("{}/Replays/{}", env::var("OSC_BOT_DANSER_PATH").expect("OSC_BOT_DANSER_PATH"), beatmap_hash);
+    tracing::debug!(reference = replay_reference, path = replay_path, "Attaching replay...");
     if !Path::new(replay_path).is_dir() {
         create_dir(&replay_path).await?;
     }
@@ -207,32 +213,45 @@ pub async fn attach_replay(beatmap_hash: &String, replay_reference: &String, byt
     let mut file = File::create(format!("{}/{}.osr", replay_path, replay_reference)).await?;
     file.write_all(bytes).await?;
     file.flush().await?;
+    tracing::debug!(path = format!("{}/{}.osr", replay_path, replay_reference), "replay attached");
     Ok(())
 }
 
 pub async fn get_replay(replay_reference: &String, beatmap_hash: &String) -> Result<osu_db::Replay, Error> {
     let replay_path = &format!("{}/Replays/{}/{}.osr", env::var("OSC_BOT_DANSER_PATH").expect("OSC_BOT_DANSER_PATH"), beatmap_hash, replay_reference);
+    tracing::debug!(path = replay_path, "Getting parsed replay...");
     let replay = osu_db::Replay::from_file(replay_path).unwrap();
+    tracing::debug!(path = replay_path, "Replay found and returned");
     Ok(replay)
 }
 
 pub async fn get_replay_file(replay_reference: &String, beatmap_hash: &String) -> Result<File, Error> {
     let replay_path = &format!("{}/Replays/{}/{}.osr", env::var("OSC_BOT_DANSER_PATH").unwrap(), beatmap_hash, replay_reference);
-    if !Path::new(replay_path).is_dir() {
-        create_dir(&replay_path).await?;
-    }
+    tracing::debug!(path = replay_path, "Getting replay as file...");
 
     let file = File::open(replay_path).await?;
+    tracing::debug!(path = replay_path, "Replay found and returned");
     Ok(file)
 }
 
+pub async fn get_replay_bytes(replay_reference: &String, beatmap_hash: &String) -> Result<Vec<u8>, Error> {
+    let replay_path = &format!("{}/Replays/{}/{}.osr", env::var("OSC_BOT_DANSER_PATH").unwrap(), beatmap_hash, replay_reference);
+    tracing::debug!(path = replay_path, "Getting replay as bytes...");
+    
+    let bytes = fs::read(replay_path).await?;
+    tracing::debug!(path = replay_path, "Replay found and returned");
+    Ok(bytes)
+}
+
 pub async fn cleanup_files(beatmap_hash: &String, replay_reference: &String, video_path: &String) {
+    tracing::debug!(reference = replay_reference, "Cleanup files for replay...");
     let replay_path = &format!("{}/Replays/{}/{}.osr", env::var("OSC_BOT_DANSER_PATH").unwrap(), beatmap_hash, replay_reference);
     _ = remove_file(replay_path);
     _ = remove_file(video_path);
 }
 
 pub async fn attach_skin_file(user_id: u32, url: &String) -> Result<bool, Error> {
+    tracing::debug!(user_id = user_id, url = url, "Save skin and tie to user...");
     let path = &format!("{}/Skins/{}", env::var("OSC_BOT_DANSER_PATH").unwrap(), user_id);
     _ = remove_dir(path);
     let client = reqwest::Client::new();
@@ -242,9 +261,12 @@ pub async fn attach_skin_file(user_id: u32, url: &String) -> Result<bool, Error>
         Ok(bytes) => bytes,
         Err(_) =>  return Ok(false)
     };
+
+    tracing::debug!(url = url, "Skin has been downloaded successfully");
     
     let cursor = Cursor::new(bytes);
     let mut zip = ZipArchive::new(cursor)?;
     _ = zip.extract(path);
+    tracing::debug!(url = url, path = path, "Skin has been extracted and saved");
     Ok(true)
 }

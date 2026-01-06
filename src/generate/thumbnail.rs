@@ -68,6 +68,7 @@ fn write_centered(img: &mut DynamicImage, color: &Rgba<u8>, cx: i32, cy: i32, sc
 }
 
 pub async fn generate_thumbnail_from_replay_file(replay: &Replay, map: &rosu::BeatmapExtended, subtitle: &str) -> Vec<u8> {
+    tracing::info!(replay_hash = replay.replay_hash, "Generating thumbnail from replay file...");
     let user = osu::get_osu_instance().user(replay.player_name.as_ref().expect("Expect a username")).await.expect("Player to exist");
     let result = huismetbenen::calculate_score_by_replay(replay, &map).await;
     let mods = osu::formatter::convert_osu_db_to_mod_array(replay.mods);
@@ -76,6 +77,7 @@ pub async fn generate_thumbnail_from_replay_file(replay: &Replay, map: &rosu::Be
 }
 
 pub async fn generate_thumbnail_from_score(score: &rosu::Score, map: &rosu::BeatmapExtended, subtitle: &str) -> Vec<u8> {
+    tracing::info!(scoreid = score.id, "Generating thumbnail from score...");
     let user = score.get_user(osu::get_osu_instance()).await.expect("User should exist");
     let mods: Vec<String> = score.mods.iter().map(|beatmap| beatmap.acronym().to_string()).collect();
     generate_thumbnail(user, map, subtitle, score.pp, score.accuracy, score.max_combo, mods, &score.grade).await
@@ -144,5 +146,6 @@ async fn generate_thumbnail(user: rosu::UserExtended, map: &rosu::BeatmapExtende
     image::imageops::overlay(&mut score_bg, &grade_image, 490, 450);
     
     let _ = score_bg.write_to(&mut Cursor::new(&mut buf), image::ImageFormat::Png);
+    tracing::info!("Thumbnail has been generated");
     buf
 }
