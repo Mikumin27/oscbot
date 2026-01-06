@@ -27,19 +27,22 @@ fn init_logging() {
         .with_env_filter(filter)
         .with_target(false) // hide module path unless you want it
         .with_line_number(true)
+        .with_writer(std::io::stderr)
         .compact()
         .init();
+
+    tracing::info!("logging initialized (set RUST_LOG to adjust verbosity)");
 }
 
 #[tokio::main]
 async fn main() {
     dotenvy::dotenv().ok();
     init_logging();
-    tracing::debug!("starting up...");
+    tracing::info!("starting up...");
     osu::initialize_osu().await.unwrap();
-    tracing::debug!("osu!api initialized!");
+    tracing::info!("osu!api initialized!");
     firebase::initialize_firebase().await.unwrap();
-    tracing::debug!("firebase initialized!");
+    tracing::info!("firebase initialized!");
 
     let token = std::env::var("OSC_BOT_DISCORD_TOKEN").expect("missing OSC_BOT_DISCORD_TOKEN");
     let intents = serenity::GatewayIntents::all();
