@@ -20,10 +20,10 @@ fn get_clone() -> Option<String> {
 }
 
 pub async fn refresh_feed(ctx: &serenity::Context) -> Result<(), Error> {
-    tracing::info!("checking youtube for new video uploads");
+    tracing::debug!("checking youtube for new video uploads");
     let url = format!("https://www.youtube.com/feeds/videos.xml?channel_id={}", env::var("OSC_BOT_YOUTUBE_CHANNEL_ID").unwrap());
     let last_video_id = get_clone();
-    tracing::info!(last = last_video_id);
+    tracing::debug!(last = last_video_id);
 
     let c = reqwest::Client::new();
     let req = c.get(&url);
@@ -34,7 +34,7 @@ pub async fn refresh_feed(ctx: &serenity::Context) -> Result<(), Error> {
     let xml = resp.text().await?;
     let video_ids = get_video_ids(&xml)?;
 
-    tracing::info!(video_ids = video_ids.join(", "));
+    tracing::debug!(video_ids = video_ids.join(", "));
 
     if video_ids.len() > 0 {
         set(video_ids[0].clone());
@@ -43,14 +43,14 @@ pub async fn refresh_feed(ctx: &serenity::Context) -> Result<(), Error> {
     let unwrapped_video_id = match last_video_id {
         Some(video_id) => video_id,
         None => {
-            tracing::info!("first loop... checking for video uploads is skipped");
+            tracing::debug!("first loop... checking for video uploads is skipped");
             return Ok(())
         }
     };
 
     for video_id in video_ids {
         if video_id == unwrapped_video_id {
-            tracing::info!("checking for new uploads has finished!");
+            tracing::debug!("checking for new uploads has finished!");
             return Ok(())
         }
         tracing::info!(link = format!("https://youtu.be/{}", video_id), "New upload has been found!");
@@ -58,7 +58,7 @@ pub async fn refresh_feed(ctx: &serenity::Context) -> Result<(), Error> {
             CreateMessage::default().content(format!("A new score has been uploaded!\nhttps://youtu.be/{}", video_id))
         ).await?;
     }
-    tracing::info!("checking for new uploads has finished!");
+    tracing::debug!("checking for new uploads has finished!");
     Ok(())
 }
 
