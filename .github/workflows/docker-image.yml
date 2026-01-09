@@ -6,7 +6,6 @@ on:
       - "**"
     paths:
       - Dockerfile
-      - docker-compose.yaml
       - .dockerignore
       - default-danser.json
       - src/**
