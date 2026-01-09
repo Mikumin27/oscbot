@@ -1,8 +1,21 @@
-# Rust build outputs
-/target
-
 # VCS
 .git
+**/.git
+.github
+
+# Rust build outputs
+/target
+target
+**/target
+
+# Logs
+**/*.log
+
+# Build / cache artifacts
+.buildx-cache
+cache-mounts
+out
+**/out
 
 # Local env / secrets (do not bake into image)
 .env
