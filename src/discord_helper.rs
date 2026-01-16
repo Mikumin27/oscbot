@@ -1,7 +1,9 @@
 use poise::CreateReply;
 use poise::serenity_prelude::{self as serenity, CacheHttp, CreateAttachment, CreateEmbed, CreateInteractionResponseMessage};
+use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
 
-use crate::{Context, sqlite};
+use crate::{Context, db};
+use crate::db::entities::user;
 use crate::{Data, Error, embeds::single_text_response};
 use crate::defaults::{REPLAY_ROLE, SERVER};
 
@@ -100,8 +102,11 @@ pub async fn user_has_replay_role(ctx: impl CacheHttp, user: &serenity::User) ->
 
 pub async fn global_check(ctx: Context<'_>) -> Result<bool, Error> {
     tracing::info!(user = ctx.author().display_name(), command = ctx.command().qualified_name , "User called a command");
-    let user = sqlite::user::find_by_discord(ctx.author().id.into()).await?;
-    if user.is_some() && user.unwrap().is_blacklisted {
+    let user_id = ctx.author().id;
+    let is_blacklisted = user::Entity::find()
+        .filter(user::Column::DiscordId.eq::<u64>(user_id.into()))
+        .filter(user::Column::IsBlacklisted.eq(true)).count(&db::get_db()).await? > 0;
+    if is_blacklisted {
         single_text_response(&ctx, "You are blacklisted", MessageState::INFO, true).await;
         tracing::warn!(user = ctx.author().display_name(), "Blacklisted user tried to use features");
         return Ok(false)

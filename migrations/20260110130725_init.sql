@@ -5,7 +5,7 @@ CREATE TABLE "user" (
   "id" INTEGER PRIMARY KEY,
   "osu_id" INTEGER NOT NULL,
   "discord_id" INTEGER NOT NULL,
-  "is_blacklisted" INTEGER NOT NULL DEFAULT 0
+  "is_blacklisted" BOOLEAN NOT NULL DEFAULT 0
 );
 
 CREATE TABLE "skin" (
@@ -20,5 +20,5 @@ CREATE TABLE "skin" (
 );
 
 CREATE TABLE "score" (
-    "identifier" TEXT PRIMARY KEY
+    "identifier" TEXT PRIMARY KEY NOT NULL
 );

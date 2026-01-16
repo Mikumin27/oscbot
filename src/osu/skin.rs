@@ -39,6 +39,35 @@ impl DEFAULT {
             DEFAULT::NODEFAULT => "No default".to_string(),
         }
     }
+
+    pub fn to_db(self) -> Option<String> {
+        if self == DEFAULT::NODEFAULT {
+            return None;
+        }
+
+        Some(self.to_string())
+    }
+
+    pub fn from_string(value: String) -> DEFAULT {
+        match value.as_str() {
+            "Default" => DEFAULT::DEFAULT,
+            "NM" => DEFAULT::NM,
+            "HD" => DEFAULT::HD,
+            "DT" => DEFAULT::DT,
+            "HR" => DEFAULT::HR,
+            "EZ" => DEFAULT::EZ,
+            "HDDT" => DEFAULT::HDDT,
+            "HDHR" => DEFAULT::HDHR,
+            _ => DEFAULT::NODEFAULT,
+        }
+    }
+
+    pub fn from_db(value: Option<String>) -> DEFAULT {
+        match value {
+            Some(value) => DEFAULT::from_string(value),
+            None => DEFAULT::NODEFAULT
+        }
+    }
 }
 
 pub async fn download(url: &String) -> Result<Option<Vec<u8>>, Error> {

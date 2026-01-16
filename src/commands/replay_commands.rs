@@ -1,9 +1,12 @@
 use poise::{CreateReply, serenity_prelude as serenity};
 use rosu_v2::prelude as rosu;
 use rosu_v2::prelude::BeatmapExtended;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use crate::db::entities::user;
 use crate::discord_helper::{ContextForFunctions, MessageState};
 use crate::embeds::{single_text_response, single_text_response_embed};
-use crate::{Context, Error, embeds, sqlite};
+use crate::osu::formatter::convert_osu_db_to_mod_array;
+use crate::{Context, Error, db, embeds};
 
 use crate::osu;
 use crate::generate::{danser, thumbnail, upload, youtube_text};
@@ -169,10 +172,11 @@ pub async fn render_and_upload (
         let beatmap_hash = map.checksum.as_ref().unwrap().clone();
         let replay_reference = score.id.to_string();
         danser::attach_replay(&beatmap_hash, &replay_reference, &replay).await.unwrap();
-        let mods: Vec<rosu::GameMod> = score.mods.into_iter().collect();
-        let user = sqlite::user::find_by_osu(&score.user_id).await?.unwrap();
-        let skin = danser::resolve_correct_skin(user, identifier, mods).await?;
-        upload::render_and_upload_by_score(&cff, score, map, subtitle).await?;
+        let mods: Vec<rosu::GameMod> = score.mods.clone().into_iter().collect();
+        let user = user::Entity::find().filter(user::Column::OsuId.eq(score.user_id)).one(&db::get_db()).await?;
+        let acronym_mods: Vec<String> = mods.iter().map(|game_mod| game_mod.acronym().to_string()).collect();
+        let skin = danser::resolve_correct_skin(user, identifier, acronym_mods).await?;
+        upload::render_and_upload_by_score(&cff, score, map, subtitle, skin).await?;
     }
     else if scorefile.is_some() {
         let bytes = scorefile.unwrap().download().await?;
@@ -187,7 +191,7 @@ pub async fn render_and_upload (
             cff.edit(single_text_response_embed("Rendering a gamemode other than standard is currently not possible.", MessageState::WARN), vec![]).await?;
             return Ok(());
         }
-        let user = osu::get_osu_instance().user(replay.player_name.as_ref().expect("Expect a username")).await.expect("Player to exist");
+        let player = osu::get_osu_instance().user(replay.player_name.as_ref().expect("Expect a username")).await.expect("Player to exist");
 
         let map: BeatmapExtended = match osu::get_beatmap_from_checksum(&replay.beatmap_hash).await {
             Some(map) => map,
@@ -199,7 +203,10 @@ pub async fn render_and_upload (
         let beatmap_hash = map.checksum.as_ref().unwrap().clone();
         let replay_reference = replay.replay_hash.as_ref().unwrap().clone();
         danser::attach_replay(&beatmap_hash, &replay_reference, &bytes).await?;
-        upload::render_and_upload_by_replay(&cff, replay, map, user, subtitle).await?;
+        let db_user = user::Entity::find().filter(user::Column::OsuId.eq(player.user_id)).one(&db::get_db()).await?;
+        let mods = convert_osu_db_to_mod_array(replay.mods);
+        let skin = danser::resolve_correct_skin(db_user, identifier, mods).await?;
+        upload::render_and_upload_by_replay(&cff, replay, map, player, subtitle, skin).await?;
     }
     else {
         embeds::single_text_response(&ctx, "Please define scoreid or scorefile", MessageState::WARN, false).await;

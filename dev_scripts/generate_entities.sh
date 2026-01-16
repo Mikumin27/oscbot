@@ -1,0 +1,1 @@
+sea-orm-cli generate entity -u "sqlite:./app.db" -o src/entity --big-integer-type i64

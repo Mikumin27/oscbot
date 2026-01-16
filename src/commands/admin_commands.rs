@@ -1,6 +1,8 @@
 use poise::{CreateReply, serenity_prelude::{self as serenity, CreateEmbed, Mentionable}};
 
-use crate::{Context, Error, discord_helper::{MessageState, user_has_replay_role}, embeds::single_text_response, osu, sqlite};
+use crate::{Context, Error, db::{self, entities::user}, discord_helper::{MessageState, user_has_replay_role}, embeds::single_text_response, osu};
+
+use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter};
 
 async fn has_replay_role(ctx: Context<'_>) -> Result<bool, Error> {
     if !user_has_replay_role(ctx, ctx.author()).await.unwrap() {
@@ -22,9 +24,12 @@ pub async fn add(
     ctx: Context<'_>,
     user: serenity::Member
 ) -> Result<(), Error> {
+    let user_id: i64 = user.user.id.into();
 
-    let mut db_user = match sqlite::user::find_by_discord(user.user.id.into()).await.unwrap() {
-        Some(user) => user,
+    let mut db_user: user::ActiveModel = match db::get_user_by_discord_id(user_id).await? {
+        Some(user) => {
+            user.into()
+        },
         None => {
             let player = match osu::get_osu_instance().user(user.display_name()).await {
                 Ok(player) => player.user_id,
@@ -33,12 +38,17 @@ pub async fn add(
                     0
                 }
             };
-            sqlite::user::User::create(player, user.user.id.into(), false).await.unwrap()
+            
+            user::ActiveModel {
+                discord_id: Set(user_id),
+                osu_id: Set(player as i64),
+                ..Default::default()
+            }.insert(&db::get_db()).await?.into()
         }
     };
 
-    db_user.is_blacklisted = true;
-    db_user.update().await?;
+    db_user.is_blacklisted = Set(true);
+    db_user.update(&db::get_db()).await?;
 
     single_text_response(&ctx, &format!("User {} has been blacklisted", user.mention().to_string()), MessageState::SUCCESS, false).await;
     Ok(())
@@ -49,29 +59,37 @@ pub async fn remove(
     ctx: Context<'_>,
     user: serenity::Member
 ) -> Result<(), Error> {
-    let mut db_user = match sqlite::user::find_by_discord(user.user.id.into()).await.unwrap() {
-        Some(user) => user,
+    let user_id: i64 = user.user.id.into();
+    let mut db_user: user::ActiveModel = match db::get_user_by_discord_id(user_id).await? {
+        Some(user) => {
+            user.into()
+        },
         None => {
             let player = match osu::get_osu_instance().user(user.display_name()).await {
                 Ok(player) => player.user_id,
                 _ => {
                     single_text_response(&ctx, &format!("User {} has the wrong username. please inform a moderator!", user.mention().to_string()), MessageState::SUCCESS, false).await;
-                    return Ok(())
+                    0
                 }
             };
-            sqlite::user::User::create(player, user.user.id.into(), false).await.unwrap()
+            
+            user::ActiveModel {
+                discord_id: Set(user_id),
+                osu_id: Set(player as i64),
+                ..Default::default()
+            }.insert(&db::get_db()).await?.into()
         }
     };
 
-    db_user.is_blacklisted = false;
-    db_user.update().await?;
+    db_user.is_blacklisted = Set(true);
+    db_user.update(&db::get_db()).await?;
     single_text_response(&ctx, &format!("User {} has been removed from the blacklist", user.mention().to_string()), MessageState::SUCCESS, false).await;
     Ok(())
 }
 
 #[poise::command(slash_command)]
 pub async fn list(ctx: Context<'_>) -> Result<(), Error> {
-    let blacklist = sqlite::user::find_by_blacklisted(true).await?;
+    let blacklist = user::Entity::find().filter(user::Column::IsBlacklisted.eq(true)).all(&db::get_db()).await?;
 
     if blacklist.is_empty() {
         single_text_response(&ctx, "The blacklist is empty", MessageState::INFO, false).await;

@@ -1,8 +1,11 @@
 use poise::serenity_prelude::{ self as serenity, ComponentInteraction, CreateAttachment, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, EditAttachments, EditMessage};
 use rosu_v2::prelude::BeatmapExtended;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use crate::db::entities::user;
 use crate::discord_helper::{ContextForFunctions, MessageState, user_has_replay_role};
+use crate::osu::formatter::convert_osu_db_to_mod_array;
 use crate::osu::get_osu_instance;
-use crate::{Error, embeds, osu};
+use crate::{Error, db, embeds, osu};
 use crate::generate::{danser, thumbnail, upload, youtube_text};
 
 enum ScoreType {
@@ -110,11 +113,14 @@ async fn upload_score_by_replay(ctx: &serenity::Context, component: &serenity::C
     let beatmap_hash = score.map.checksum.as_ref().unwrap();
     let replay = danser::get_replay(&score.reference, &beatmap_hash).await.unwrap();
 
-    let user = osu::get_osu_instance().user(replay.player_name.as_ref().unwrap()).await.unwrap();
+    let player = osu::get_osu_instance().user(replay.player_name.as_ref().unwrap()).await.unwrap();
 
     let title = youtube_text::generate_title_with_replay(&replay, &score.map).await;
     cff.send(embeds::render_and_upload_embed(&"...".to_string(), false, None, false)?).await?;
-    upload::render_and_upload_by_replay(&cff, replay, score.map.clone(),  user,None).await?;
+    let user = user::Entity::find().filter(user::Column::OsuId.eq(player.user_id)).one(&db::get_db()).await?;
+    let mods = convert_osu_db_to_mod_array(replay.mods);
+    let skin = danser::resolve_correct_skin(user, None, mods).await?;
+    upload::render_and_upload_by_replay(&cff, replay, score.map.clone(),  player,None, skin).await?;
     Ok(title)
 }
 
@@ -133,7 +139,10 @@ async fn upload_score_by_score(ctx: &serenity::Context, component: &serenity::Co
     let map = osu::get_osu_instance().beatmap().map_id(score.map_id).await.expect("Beatmap must exist");
     let title = youtube_text::generate_title_with_score(&score, &map).await;
     danser::attach_replay(&map.checksum.as_ref().unwrap(), &score_id.to_string(), &replay_bytes).await?;
-    upload::render_and_upload_by_score(&cff, score, map, None).await?;
+    let user = user::Entity::find().filter(user::Column::OsuId.eq(score.user_id)).one(&db::get_db()).await?;
+    let acronym_mods: Vec<String> = score.mods.iter().map(|game_mod| game_mod.acronym().to_string()).collect();
+    let skin = danser::resolve_correct_skin(user, None, acronym_mods).await?;
+    upload::render_and_upload_by_score(&cff, score, map, None, skin).await?;
     Ok(title)
 }
 

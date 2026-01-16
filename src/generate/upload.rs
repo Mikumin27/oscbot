@@ -1,14 +1,14 @@
 use poise::serenity_prelude::CreateAttachment;
 use rosu_v2::prelude as rosu;
 
-use crate::{Error, apis::{nerinyan, youtube}, discord_helper::ContextForFunctions, embeds, generate::{danser, thumbnail, youtube_text}, sqlite::skin::Skin};
+use crate::{Error, apis::{nerinyan, youtube}, db::entities::skin, discord_helper::ContextForFunctions, embeds, generate::{danser, thumbnail, youtube_text}};
 
 pub async fn render_and_upload_by_score(
     cff: &ContextForFunctions<'_>,
     score: rosu::Score,
     map: rosu::BeatmapExtended,
     subtitle: Option<String>,
-    skin: Skin,
+    skin: Option<skin::Model>,
 ) -> Result<(), Error> {
     let title = youtube_text::generate_title_with_score(&score, &map).await;
     cff.edit(embeds::render_and_upload_embed(&title, false, None, false)?, vec![]).await?;
@@ -25,7 +25,7 @@ pub async fn render_and_upload_by_replay(
     map: rosu::BeatmapExtended,
     user: rosu::UserExtended,
     subtitle: Option<String>,
-    skin: Skin,
+    skin: Option<skin::Model>,
 ) -> Result<(), Error> {
     let title = youtube_text::generate_title_with_replay(&replay, &map).await;
     cff.edit(embeds::render_and_upload_embed(&title, false, None, false)?, vec![]).await?;
@@ -45,12 +45,16 @@ pub async fn render_and_upload(
     title: String,
     description: String,
     thumbnail: Vec<u8>,
-    skin: Skin
+    skin: Option<skin::Model>
 ) -> Result<(), Error> {
     nerinyan::download_mapset(cff, mapset_id).await?;
     let replay_bytes = danser::get_replay_bytes(&replay_reference, &map_hash).await?;
     cff.edit(embeds::render_and_upload_embed(&title, true, None, false)?, vec![]).await?;
-    danser::attach_skin_file(map_hash, &skin.url).await?;
+    match skin {
+        Some(skin) => danser::attach_skin_file(replay_reference, &skin.url).await?,
+        None => true,
+    };
+    
     let replay_path = danser::render(cff, &title, map_hash, replay_reference).await?;
     let title_too_long = title.len() > 100;
     let video_title = if title_too_long {&"temporary title please replace".to_string()} else {&title};

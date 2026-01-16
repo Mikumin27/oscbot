@@ -1,8 +1,10 @@
 use poise::{CreateReply, serenity_prelude::{self as serenity, CreateEmbed, CreateEmbedAuthor}};
 use url::Url;
 
-use crate::{Context, Error, discord_helper::MessageState, embeds::single_text_response, osu::{self, skin::DEFAULT}, sqlite};
+use crate::{Context, Error, db, discord_helper::MessageState, embeds::single_text_response, osu::{self, skin::DEFAULT}};
 use crate::discord_helper::user_has_replay_role;
+use crate::db::entities::skin;
+use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
 
 async fn has_replay_role(ctx: Context<'_>) -> Result<bool, Error> {
     if !user_has_replay_role(ctx, ctx.author()).await.unwrap() {
@@ -51,12 +53,12 @@ pub async fn set(
         }
     };
 
-    let user_id = match &member {
-        Some(member) => member.user.id,
-        None => ctx.author().id
+    let user_id: i64 = match &member {
+        Some(member) => member.user.id.into(),
+        None => ctx.author().id.into()
     };
 
-    let user = match osu::get_osu_instance().user(username).await {
+    let player = match osu::get_osu_instance().user(username).await {
         Ok(user) => user,
         Err(_) =>  {
             single_text_response(&ctx, "Your username is not related to your osu!account. Please inform the mods to rename you!", MessageState::WARN, false).await;
@@ -64,10 +66,7 @@ pub async fn set(
         }
     };
 
-    let user = match sqlite::user::find_by_discord(user_id.into()).await.unwrap() {
-        Some(user) => user,
-        None => sqlite::user::User::create(user.user_id, user_id.into(), false).await.unwrap()
-    };
+    let user = db::get_user_by_discord_id_or_create(user_id, player.user_id as i32).await?;
 
     let skin_upload_successful = osu::skin::download(&url).await?.is_some();
 
@@ -76,16 +75,24 @@ pub async fn set(
         return Ok(());
     }
 
-    match sqlite::skin::find_by_identifier(&user_id.into(), &identifier).await? {
-        Some(mut skin) => {
-            skin.url = url;
-            skin.default = default;
-            skin.update().await?;
+    db::clean_up_default(user.clone(), default).await?;
+    match skin::Entity::find().filter(skin::Column::User.eq(user.id)).filter(skin::Column::Identifier.eq(identifier.clone())).one(&db::get_db()).await? {
+        Some(skin) => {
+            let mut active_skin: skin::ActiveModel = skin.into();
+            active_skin.url = Set(url);
+            active_skin.default = Set(default.to_db());
+            active_skin.update(&db::get_db()).await?;
         },
         None => {
-            sqlite::skin::Skin::create(&user, &identifier, &url, &default).await.unwrap();
-        },
-    };
+            skin::ActiveModel {
+                user: Set(user.id),
+                identifier: Set(identifier),
+                url: Set(url),
+                default: Set(default.to_db()),
+                ..Default::default()
+            }.insert(&db::get_db()).await?;
+        }
+        };
 
     single_text_response(&ctx, "Skin has been saved", MessageState::SUCCESS, false).await;
     Ok(())
@@ -106,9 +113,9 @@ pub async fn get(
         }
     };
 
-    let user_id = match &member {
-        Some(member) => member.user.id,
-        None => ctx.author().id
+    let user_id: i64 = match &member {
+        Some(member) => member.user.id.into(),
+        None => ctx.author().id.into()
     };
 
     let player = match osu::get_osu_instance().user(&username).await {
@@ -119,14 +126,11 @@ pub async fn get(
         }
     };
 
-    let user = match sqlite::user::find_by_discord(user_id.into()).await.unwrap() {
-        Some(user) => user,
-        None => sqlite::user::User::create(player.user_id, user_id.into(), false).await.unwrap()
-    };
+    let user = db::get_user_by_discord_id_or_create(user_id, player.user_id as i32).await?;
     
     let skins = match identifier {
         Some(identifier) => {
-            match sqlite::skin::find_by_identifier(&user.id, &identifier).await? {
+            match db::get_skin_by_identifier(user, identifier).await? {
                 Some(skin) => vec![skin],
                 None => {
                     single_text_response(&ctx, "This user has not a skin with that identifier", MessageState::INFO, false).await;
@@ -135,7 +139,7 @@ pub async fn get(
             }
         },
         None => {
-            sqlite::skin::find_all_by_user(&user.id).await?
+            db::get_all_skins_by_user(user).await?
         }
     };
 
@@ -146,7 +150,7 @@ pub async fn get(
 
     let mut embed = CreateEmbed::default().author(CreateEmbedAuthor::new(format!("Skins: {}", username)));
     for skin in skins {
-        let default_text: String = if skin.default != DEFAULT::NODEFAULT {format!("({})", skin.default.to_string())} else {"".to_string()};
+        let default_text: String = if skin.default != DEFAULT::NODEFAULT.to_db() {format!("({})", DEFAULT::from_db(skin.default).to_string())} else {"".to_string()};
         embed = embed.field("", format!("[{} {}]({})", skin.identifier, default_text, skin.url), false);
     }
 
@@ -176,9 +180,9 @@ pub async fn remove(
         }
     };
 
-    let user_id = match &member {
-        Some(member) => member.user.id,
-        None => ctx.author().id
+    let user_id: i64 = match &member {
+        Some(member) => member.user.id.into(),
+        None => ctx.author().id.into()
     };
 
     let player = match osu::get_osu_instance().user(&username).await {
@@ -189,16 +193,11 @@ pub async fn remove(
         }
     };
 
-    let user = match sqlite::user::find_by_discord(user_id.into()).await.unwrap() {
-        Some(user) => user,
-        None => sqlite::user::User::create(player.user_id, user_id.into(), false).await.unwrap()
-    };
+    let user = db::get_user_by_discord_id_or_create(user_id, player.user_id as i32).await?;
     
-    let skin =  sqlite::skin::find_by_identifier(&user.id, &identifier).await?;
-
-    match skin {
+    match db::get_skin_by_identifier(user, identifier.clone()).await? {
         Some(skin) => {
-            skin.delete().await?;
+            skin.delete(&db::get_db()).await?;
             single_text_response(&ctx, &format!("Skin ```{}``` has been removed!", identifier), MessageState::SUCCESS, false).await;
         },
         None => {
