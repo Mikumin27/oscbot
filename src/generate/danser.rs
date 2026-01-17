@@ -1,10 +1,11 @@
-use std::fs::{remove_dir, remove_file};
+use std::fs::{remove_dir_all, remove_file};
 use std::io::Cursor;
 use std::process::Stdio;
 use std::env;
 use std::path::Path;
 use std::collections::VecDeque;
 use std::time::{Duration, SystemTime};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use tokio::fs;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use std::io::Write;
@@ -16,8 +17,9 @@ use tokio::{fs::{File, create_dir}, io::AsyncWriteExt};
 use tracing::Level;
 
 use crate::discord_helper::ContextForFunctions;
-use crate::firebase::user;
-use crate::{Error, embeds};
+use crate::osu::skin::DEFAULT;
+use crate::{Error, db, embeds};
+use crate::db::entities::{user, skin};
 
 fn is_ffmpeg_progress_line(line: &str) -> bool {
     let l = line.trim_start();
@@ -114,10 +116,10 @@ fn fallback_latest_rendered_video(output_dir: &str, started_at: SystemTime) -> O
     best.map(|(_, _, p)| p)
 }
 
-pub async fn render(cff: &ContextForFunctions<'_>, title: &String, beatmap_hash: &String, replay_reference: &String, user_id: &u32) -> Result<String, Error> {
+pub async fn render(cff: &ContextForFunctions<'_>, title: &String, beatmap_hash: &String, replay_reference: &String) -> Result<String, Error> {
     tracing::info!("Begin rendering replay");
     let started_at = SystemTime::now();
-    let skin_path = &format!("{}/Skins/{}", env::var("OSC_BOT_DANSER_PATH").unwrap(), user_id);
+    let skin_path = &format!("{}/Skins/{}", env::var("OSC_BOT_DANSER_PATH").unwrap(), replay_reference);
     let replay_path = &format!("{}/Replays/{}/{}.osr", env::var("OSC_BOT_DANSER_PATH").unwrap(), beatmap_hash, replay_reference);
 
     let danser_cli = env::var("OSC_BOT_DANSER_CLI").unwrap_or("danser-cli".to_string());
@@ -128,15 +130,9 @@ pub async fn render(cff: &ContextForFunctions<'_>, title: &String, beatmap_hash:
     let mut out = Command::new(&danser_cli);
 
     out.args(["-replay", replay_path, "-record"]);
-    match user::get_user_skin(&user_id.to_string()).await {
-        Some(url) => {
-            if !Path::new(skin_path).is_dir() {
-                attach_skin_file(*user_id, &url).await?;
-            }
-            out.args(["-skin", &user_id.to_string()]);
-        },
-        None => ()
-    };
+    if Path::new(skin_path).is_dir() {
+        out.args(["-skin", replay_reference]);
+    }
 
     let mut danser_terminal = out
         .stdout(Stdio::piped())
@@ -300,14 +296,15 @@ pub async fn get_replay_bytes(replay_reference: &String, beatmap_hash: &String) 
 pub async fn cleanup_files(beatmap_hash: &String, replay_reference: &String, video_path: &String) {
     tracing::debug!(reference = replay_reference, "Cleanup files for replay...");
     let replay_path = &format!("{}/Replays/{}/{}.osr", env::var("OSC_BOT_DANSER_PATH").unwrap(), beatmap_hash, replay_reference);
-    _ = remove_file(replay_path);
-    _ = remove_file(video_path);
+    let path = &format!("{}/Skins/{}", env::var("OSC_BOT_DANSER_PATH").unwrap(), replay_reference);
+    remove_dir_all(path).ok();
+    remove_file(replay_path).ok();
+    remove_file(video_path).ok();
 }
 
-pub async fn attach_skin_file(user_id: u32, url: &String) -> Result<bool, Error> {
-    tracing::debug!(user_id = user_id, url = url, "Save skin and tie to user...");
-    let path = &format!("{}/Skins/{}", env::var("OSC_BOT_DANSER_PATH").unwrap(), user_id);
-    _ = remove_dir(path);
+pub async fn attach_skin_file(replay_reference: &String, url: &String) -> Result<bool, Error> {
+    let path = &format!("{}/Skins/{}", env::var("OSC_BOT_DANSER_PATH").unwrap(), replay_reference);
+    remove_dir_all(path).ok();
     let client = reqwest::Client::new();
     let resp = client.get(url).send().await?.error_for_status()?;
 
@@ -323,4 +320,65 @@ pub async fn attach_skin_file(user_id: u32, url: &String) -> Result<bool, Error>
     _ = zip.extract(path);
     tracing::debug!(url = url, path = path, "Skin has been extracted and saved");
     Ok(true)
+}
+
+fn get_all_mod_defaults(acronym_mods: Vec<String>) -> Vec<DEFAULT> {
+    let mut defaults: Vec<DEFAULT> = vec![];
+    let mut found = false;
+    if acronym_mods.contains(&"DT".into()) {
+        if acronym_mods.contains(&"HD".into()) {
+            defaults.push(DEFAULT::HDDT);
+        }
+        defaults.push(DEFAULT::DT);
+        found = true;
+    }
+    if acronym_mods.contains(&"HR".into()) {
+        if acronym_mods.contains(&"HD".into()) {
+            defaults.push(DEFAULT::HDHR);
+        }
+        defaults.push(DEFAULT::HR);
+        found = true;
+    }
+
+    if acronym_mods.contains(&"EZ".into()) {
+        defaults.push(DEFAULT::EZ);
+        found = true;
+    }
+
+    if acronym_mods.contains(&"HD".into()) {
+        defaults.push(DEFAULT::HD);
+        found = true;
+    }
+
+    if !found {
+        defaults.push(DEFAULT::NM);
+    }
+
+    defaults.push(DEFAULT::DEFAULT);
+    defaults
+}
+
+pub async fn resolve_correct_skin(user: Option<user::Model>, identifier: Option<String>, mods: Vec<String>) -> Result<Option<skin::Model>, Error> {
+    let skin = match user {
+        None => None,
+        Some(user) => {
+            if identifier.is_some() {
+                match db::get_skin_by_identifier(user, identifier.unwrap()).await? {
+                    Some(skin) => return Ok(Some(skin)),
+                    None => ()
+                }
+            }
+            let relevant_defaults = get_all_mod_defaults(mods);
+            let skins = skin::Entity::find().filter(skin::Column::Default.ne::<Option<String>>(None)).all(&db::get_db()).await?;
+            for relevant_default in relevant_defaults {
+                match skins.iter().filter(|skin| skin.default == relevant_default.to_db()).next() {
+                    Some(skin) => return Ok(Some(skin.clone())),
+                    _ => ()
+                }
+            }
+            return Ok(None)
+        }
+    };
+
+    Ok(skin)
 }

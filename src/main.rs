@@ -3,8 +3,10 @@ use tracing_subscriber::{EnvFilter, fmt};
 
 use crate::events::background_tasks;
 
+mod migrations;
+mod db;
+
 mod embeds;
-mod firebase;
 mod apis;
 mod osu;
 mod emojis;
@@ -43,9 +45,12 @@ async fn main() {
     tracing::info!("starting up...");
     osu::initialize_osu().await.unwrap();
     tracing::info!("osu!api initialized!");
-    firebase::initialize_firebase().await.unwrap();
-    tracing::info!("firebase initialized!");
+    tracing::info!("inserting migrations!");
+    migrations::update_migrations().await.unwrap();
+    db::init_db().await.unwrap();
+    tracing::info!("db initialized!");
 
+    
     let token = std::env::var("OSC_BOT_DISCORD_TOKEN").expect("missing OSC_BOT_DISCORD_TOKEN");
     let intents = serenity::GatewayIntents::all();
 
