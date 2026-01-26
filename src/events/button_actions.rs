@@ -112,6 +112,7 @@ async fn upload_score_by_replay(ctx: &serenity::Context, component: &serenity::C
         event_context: Some(ctx),
         component: Some(component)
     };
+    cff.send(embeds::render_and_upload_embed(&"...".to_string(), false, None, false)?).await?;
 
     let beatmap_hash = score.map.checksum.as_ref().unwrap();
     let replay = danser::get_replay(&score.reference, &beatmap_hash).await.unwrap();
@@ -119,7 +120,6 @@ async fn upload_score_by_replay(ctx: &serenity::Context, component: &serenity::C
     let player = osu::get_osu_instance().user(replay.player_name.as_ref().unwrap()).await.unwrap();
 
     let title = youtube_text::generate_title_with_replay(&replay, &score.map).await;
-    cff.send(embeds::render_and_upload_embed(&"...".to_string(), false, None, false)?).await?;
     let user = user::Entity::find().filter(user::Column::OsuId.eq(player.user_id)).one(&db::get_db()).await?;
     let mods = convert_osu_db_to_mod_array(replay.mods);
     let skin = danser::resolve_correct_skin(user, score.skin_identifier.clone(), mods).await?;
