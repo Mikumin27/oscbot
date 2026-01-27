@@ -41,7 +41,7 @@ pub async fn set(
     }
 
     if !is_url(&url) || !url.starts_with("https://git.sulej.net/") || !url.ends_with(".osk") {
-        single_text_response(&ctx, "Please enter the download link to your skin in https://git.sulej.net/", MessageState::WARN, false).await;
+        single_text_response(&ctx, "Please enter the download link to your skin in https://git.sulej.net/.\nHow to use: https://git.sulej.net/osc/skins/src/branch/main/how-to-use.md", MessageState::WARN, false).await;
         return Ok(());
     }
 
